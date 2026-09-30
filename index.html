@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>E-hailing Business Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#29262b;--cream:#fffaf6;--blush:#f7dbe0;--green:#36724c;--line:#eadfda;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;font-family:"DM Sans",sans-serif;color:var(--ink);background:var(--cream)}
+button,input,select,textarea{font:inherit}
+:is(button,input,select,textarea):focus-visible{outline:3px solid #a986bf;outline-offset:2px}
+.dashboard-shell{width:100%;min-height:100vh;background:radial-gradient(circle at 95% 0%,#f2e9f4 0,transparent 25rem),var(--cream)}
+.app-inner{width:100%;max-width:1440px;margin:0 auto;padding:24px}
+.card{border:1px solid var(--line);background:#fffdfb;border-radius:22px;box-shadow:0 8px 24px rgba(77,48,54,.05)}
+.metric{min-height:130px;padding:18px;position:relative;overflow:hidden}
+.metric:after{content:"";position:absolute;width:42px;height:42px;border-radius:50%;right:-11px;top:-11px;background:var(--blush);opacity:.65}
+.metric-value{font-size:clamp(1.25rem,3vw,1.7rem);line-height:1.1;font-weight:700;letter-spacing:-.04em;margin-top:10px}
+.eyebrow{font-size:16px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:#756a72}
+.lbl{color:#756a72;font-size:16px;font-weight:400}
+.h2{font-family:Fraunces,serif;font-size:24px;font-weight:700;color:var(--ink)}
+.fl{display:block;margin-bottom:4px;font-size:16px;font-weight:600}
+.positive{color:var(--green)}.negative{color:#b34054}
+.chart-columns{height:180px;display:flex;gap:12px;align-items:end;padding-top:16px;border-bottom:1px solid var(--line)}
+.chart-col{flex:1;min-width:36px;height:100%;display:flex;align-items:end;justify-content:center;position:relative}
+.chart-bar{width:min(72%,34px);min-height:3px;border-radius:10px 10px 2px 2px;transition:height .35s ease}
+.trend-wrap{height:210px;position:relative;border-bottom:1px solid var(--line)}
+.trend-svg{width:100%;height:100%;overflow:visible}
+.flow-item{flex:1;min-width:130px;padding:15px;border-radius:16px}
+.flow-item p:first-child{font-size:16px}
+.flow-arrow{color:#9a8692;align-self:center}
+.daily-row:hover{background:#fff8f6}
+th{font-size:16px;font-weight:400}
+dialog{border:none;padding:0;background:transparent;max-width:min(720px,calc(100% - 24px));width:100%}
+dialog::backdrop{background:rgba(53,37,43,.42);backdrop-filter:blur(3px)}
+.modal-panel{max-height:92vh;overflow:auto;border-radius:26px;background:#fffdfb}
+.form-input{width:100%;border:1px solid #d8ced0;background:#fff;border-radius:12px;min-height:46px;padding:10px 12px;color:var(--ink)}
+.form-input:focus{border-color:#9b78b5}
+.hidden-state{display:none!important}
+.btn{border-radius:12px;padding:12px 16px;font-weight:700;font-size:16px}
+@media(max-width:640px){.app-inner{padding:14px}.header-actions{width:100%}.header-actions>*{flex:1}.flow-arrow{transform:rotate(90deg)}.flow-list{flex-direction:column}}
+</style>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.577.0/dist/umd/lucide.min.js"></script>
+<script>
+// Local data layer (replaces the hosted SDK): saves entries in this browser.
+(function(){
+  const KEY='ehailing-entries-v1'; let mem=[], cb=null;
+  const load=()=>{try{const v=localStorage.getItem(KEY);if(v)mem=JSON.parse(v)||[]}catch(e){}};
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(mem))}catch(e){}};
+  const emit=()=>cb&&cb(mem.slice());
+  window.dataSdk={
+    async init(o){cb=o.onDataChanged;load();emit();return{isOk:true}},
+    async create(d){const r={...d,__backendId:'id'+Date.now()+Math.random().toString(36).slice(2,6)};mem.push(r);save();emit();return{isOk:true,data:r}},
+    async update(d){mem=mem.map(r=>r.__backendId===d.__backendId?d:r);save();emit();return{isOk:true}},
+    async delete(d){mem=mem.filter(r=>r.__backendId!==d.__backendId);save();emit();return{isOk:true}}
+  };
+})();
+</script>
+</head>
+<body>
+<div class="dashboard-shell">
+<header class="app-inner pb-4">
+ <div class="flex flex-wrap items-center justify-between gap-4">
+  <div>
+   <p class="eyebrow" style="font-size:12px">One car. One clear picture.</p>
+   <h1 class="mt-1 font-['Fraunces'] font-bold tracking-tight" style="font-size:32px">E-hailing Business Tracker</h1>
+  </div>
+  <div class="header-actions flex items-center gap-2">
+   <button id="prevMonth" type="button" aria-label="Previous month" class="rounded-xl border border-[#e5d8d8] bg-white p-3 hover:bg-[#fff4f3]"><i data-lucide="chevron-left"></i></button>
+   <button id="monthPickerButton" type="button" class="min-w-[150px] rounded-xl border border-[#e5d8d8] bg-white px-4 py-3 font-semibold" aria-label="Choose month"><span id="selectedMonth"></span></button>
+   <input id="monthPicker" type="month" class="hidden-state" aria-label="Select month">
+   <button id="nextMonth" type="button" aria-label="Next month" class="rounded-xl border border-[#e5d8d8] bg-white p-3 hover:bg-[#fff4f3]"><i data-lucide="chevron-right"></i></button>
+   <button id="addEntryButton" type="button" class="flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold shadow-sm transition hover:-translate-y-0.5" style="background:#29262b;color:#fff"><i data-lucide="plus" class="h-5 w-5"></i><span>Add daily entry</span></button>
+  </div>
+ </div>
+</header>
+<main class="app-inner pt-2">
+ <section class="card mb-6 p-4">
+  <div class="mb-3 flex items-center gap-2">
+   <span class="rounded-full bg-[#f7dbe0] p-2"><i data-lucide="sun" class="h-4 w-4"></i></span>
+   <h2 class="text-lg font-bold" style="font-size:24px">Today</h2><span id="todayDate" class="ml-auto text-sm text-[#756a72]"></span>
+  </div>
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+   <div><p class="lbl">Today’s Trips</p><p id="todayTrips" class="mt-1 text-xl font-bold">0</p></div>
+   <div><p class="lbl">Today’s Revenue</p><p id="todayRevenue" class="mt-1 text-xl font-bold">R0.00</p></div>
+   <div><p class="lbl">Today’s Fuel</p><p id="todayFuel" class="mt-1 text-xl font-bold">R0.00</p></div>
+   <div><p class="lbl">Today’s Expenses</p><p id="todayExpenses" class="mt-1 text-xl font-bold">R0.00</p></div>
+   <div><p class="lbl">Today’s Net Profit</p><p id="todayProfit" class="mt-1 text-xl font-bold">R0.00</p></div>
+  </div>
+ </section>
+ <section class="mb-7">
+  <div class="mb-3 flex items-center justify-between">
+   <h2 class="h2">This month at a glance</h2><span id="entryCount" class="rounded-full bg-[#eee8f5] px-3 py-1 text-xs font-semibold text-[#665774]"></span>
+  </div>
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
+   <article class="card metric"><p class="eyebrow">Total trips</p><p id="totalTrips" class="metric-value">0</p></article>
+   <article class="card metric"><p class="eyebrow">Total revenue</p><p id="totalRevenue" class="metric-value">R0.00</p></article>
+   <article class="card metric"><p class="eyebrow">Total fuel</p><p id="totalFuel" class="metric-value">R0.00</p></article>
+   <article class="card metric"><p class="eyebrow">Other expenses</p><p id="totalOther" class="metric-value">R0.00</p></article>
+   <article class="card metric"><p class="eyebrow">Total deposits</p><p id="totalDeposits" class="metric-value">R0.00</p></article>
+   <article class="card metric"><p class="eyebrow">Total net profit</p><p id="totalProfit" class="metric-value positive">R0.00</p></article>
+   <article class="card metric"><p class="eyebrow">Average per trip</p><p id="averageTrip" class="metric-value">R0.00</p></article>
+  </div>
+ </section>
+ <section class="grid gap-5 xl:grid-cols-[1.05fr_.95fr]">
+  <article class="card p-5">
+   <h2 class="h2">Business Snapshot</h2>
+   <div class="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
+    <div><p class="lbl">Best revenue day</p><p id="bestDay" class="mt-1 font-bold">—</p></div>
+    <div><p class="lbl">Most trips in one day</p><p id="mostTrips" class="mt-1 font-bold">0</p></div>
+    <div><p class="lbl">Total days worked</p><p id="daysWorked" class="mt-1 font-bold">0</p></div>
+    <div><p class="lbl">Average daily revenue</p><p id="avgRevenue" class="mt-1 font-bold">R0.00</p></div>
+    <div><p class="lbl">Average daily profit</p><p id="avgProfit" class="mt-1 font-bold">R0.00</p></div>
+    <div><p class="lbl">Total fuel spend</p><p id="snapshotFuel" class="mt-1 font-bold">R0.00</p></div>
+   </div>
+  </article>
+  <article class="card p-5">
+   <h2 class="h2">Revenue → Expenses → Profit</h2>
+   <div class="chart-columns" id="comparisonChart"></div>
+   <div class="mt-8 grid grid-cols-3 gap-2 text-center" style="font-size:16px;font-weight:700">
+    <span style="color:#a94c64">Revenue</span><span style="color:#816142">Expenses</span><span style="color:#36724c">Net Profit</span>
+   </div>
+  </article>
+ </section>
+ <section class="mt-5 grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
+  <article class="card p-5 overflow-hidden">
+   <div class="flex items-center justify-between">
+    <h2 class="h2">Monthly trend</h2>
+    <div class="flex gap-3">
+     <span class="flex items-center gap-1"><i class="h-2 w-2 rounded-full bg-[#d2738c]"></i><span class="lbl">Revenue</span></span>
+     <span class="flex items-center gap-1"><i class="h-2 w-2 rounded-full bg-[#8b7aad]"></i><span class="lbl">Net profit</span></span>
+    </div>
+   </div>
+   <div class="trend-wrap mt-5"><svg id="trendChart" class="trend-svg" viewBox="0 0 700 190" preserveAspectRatio="none" aria-label="Monthly revenue and profit trend chart"></svg></div>
+  </article>
+  <article class="card p-5">
+   <h2 class="h2">Business Money Flow</h2>
+   <div class="flow-list mt-5 flex items-stretch gap-2 overflow-x-auto">
+    <div class="flow-item bg-[#f7dbe0]"><p>Money earned</p><p id="flowEarned" class="mt-2 font-bold">R0.00</p></div><i data-lucide="arrow-right" class="flow-arrow"></i>
+    <div class="flow-item bg-[#f4eee7]"><p>Fuel + expenses</p><p id="flowSpent" class="mt-2 font-bold">R0.00</p></div><i data-lucide="arrow-right" class="flow-arrow"></i>
+    <div class="flow-item bg-[#dceddc]"><p>Net business earnings</p><p id="flowNet" class="mt-2 font-bold">R0.00</p></div><i data-lucide="arrow-right" class="flow-arrow"></i>
+    <div class="flow-item bg-[#e8e1f2]"><p>Money deposited</p><p id="flowDeposited" class="mt-2 font-bold">R0.00</p></div><i data-lucide="arrow-right" class="flow-arrow"></i>
+    <div class="flow-item bg-[#f7edf0]"><p>Remaining in business</p><p id="flowRemaining" class="mt-2 font-bold">R0.00</p></div>
+   </div>
+  </article>
+ </section>
+ <section class="mt-7 pb-10">
+  <div class="mb-3 flex items-end justify-between gap-3">
+   <div>
+    <h2 class="h2">Daily performance</h2>
+    <p class="lbl mt-1">Open any day to correct details, deposits, withdrawals, categories, or notes.</p>
+   </div>
+   <button id="tableAddButton" type="button" class="rounded-xl bg-[#29262b] px-4 py-2 font-bold text-white hover:bg-[#4c4148]" style="font-size:16px">Add entry</button>
+  </div>
+  <div class="card overflow-x-auto">
+   <div id="emptyState" class="hidden-state py-14 text-center">
+    <i data-lucide="calendar-plus" class="mx-auto h-9 w-9 text-[#a98694]"></i>
+    <h3 class="mt-3 font-bold" style="font-size:19px">A fresh month, ready when you are</h3>
+    <p class="lbl mx-auto mt-1 max-w-sm">Add your first daily entry after work. Blank amounts are always treated as zero.</p>
+   </div>
+   <table id="dailyTable" class="w-full min-w-[790px] text-left text-sm">
+    <thead class="border-b border-[#eadfda] bg-[#fff7f5]"><tr>
+     <th class="px-4 py-4">Date</th><th class="px-3 py-4">Trips</th><th class="px-3 py-4">Income</th><th class="px-3 py-4">Fuel</th><th class="px-3 py-4">Other Expenses</th><th class="px-3 py-4">Deposit</th><th class="px-3 py-4">Net Profit</th><th class="px-4 py-4">Daily total</th>
+    </tr></thead>
+    <tbody id="dailyRows"></tbody>
+   </table>
+  </div>
+ </section>
+</main>
+</div>
+<template id="rowTemplate">
+ <tr class="daily-row border-b border-[#f0e8e5]" data-row-id="">
+  <td class="px-4 py-4 font-semibold row-date"></td><td class="px-3 py-4 row-trips"></td><td class="px-3 py-4 row-income"></td><td class="px-3 py-4 row-fuel"></td><td class="px-3 py-4 row-other"></td><td class="px-3 py-4 row-deposit"></td><td class="px-3 py-4 font-bold row-profit"></td>
+  <td class="px-4 py-4"><button type="button" class="edit-btn rounded-lg bg-[#eee8f5] px-3 py-2 text-xs font-bold text-[#564667]">Edit</button></td>
+ </tr>
+</template>
+<dialog id="entryDialog" aria-labelledby="formHeading">
+ <div class="modal-panel">
+  <form id="entryForm" novalidate class="p-5 sm:p-7">
+   <div class="flex items-start justify-between gap-4">
+    <div><p class="eyebrow" style="font-size:12px">Daily business record</p><h2 id="formHeading" class="h2 mt-1">Add daily entry</h2></div>
+    <button id="closeDialog" type="button" aria-label="Close entry form" class="rounded-lg p-2 hover:bg-[#f6eeee]"><i data-lucide="x"></i></button>
+   </div>
+   <p class="lbl mt-2">Enter what you know. Empty money fields safely count as R0.00.</p>
+   <div id="formError" class="hidden-state mt-4 rounded-xl bg-[#fff0f2] p-3 text-sm text-[#9f3348]" role="alert"></div>
+   <div class="mt-5 grid gap-4 sm:grid-cols-2">
+    <div><label class="fl" for="entryDate">Date</label><input id="entryDate" class="form-input" type="date" required></div>
+    <div><label class="fl" for="trips">Trips completed</label><input id="trips" class="form-input calc-input" type="number" min="0" step="1" inputmode="numeric"></div>
+    <div><label class="fl" for="tripEarnings">Total trip / e-hailing earnings (R)</label><input id="tripEarnings" class="form-input calc-input" type="number" min="0" step="0.01" inputmode="decimal"></div>
+    <div><label class="fl" for="cashEarnings">Cash earnings (R)</label><input id="cashEarnings" class="form-input calc-input" type="number" min="0" step="0.01" inputmode="decimal"></div>
+    <div><label class="fl" for="appEarnings">App / e-wallet earnings (R)</label><input id="appEarnings" class="form-input calc-input" type="number" min="0" step="0.01" inputmode="decimal"></div>
+    <div><label class="fl" for="bankDeposit">Amount deposited to bank (R)</label><input id="bankDeposit" class="form-input calc-input" type="number" min="0" step="0.01" inputmode="decimal"></div>
+    <div><label class="fl" for="fuelSpent">Fuel spent (R)</label><input id="fuelSpent" class="form-input calc-input" type="number" min="0" step="0.01" inputmode="decimal"></div>
+    <div><label class="fl" for="otherExpenses">Other business expenses (R)</label><input id="otherExpenses" class="form-input calc-input" type="number" min="0" step="0.01" inputmode="decimal"></div>
+    <div><label class="fl" for="withdrawn">Money removed from business (R)</label><input id="withdrawn" class="form-input calc-input" type="number" min="0" step="0.01" inputmode="decimal"></div>
+    <div><label class="fl" for="expenseCategory">Other expense category</label><select id="expenseCategory" class="form-input"><option value="maintenance">Maintenance</option><option value="car wash">Car wash</option><option value="data/airtime">Data / airtime</option><option value="parking/tolls">Parking / tolls</option><option value="insurance/licensing">Insurance / licensing</option><option value="repairs">Repairs</option><option value="other">Other</option></select></div>
+    <div class="sm:col-span-2"><label class="fl" for="notes">Notes (optional)</label><textarea id="notes" class="form-input min-h-[88px]" maxlength="500"></textarea></div>
+   </div>
+   <div class="mt-5 rounded-2xl bg-[#f7f2f2] p-4">
+    <p class="eyebrow">Live daily result</p>
+    <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+     <div><span class="lbl">Total expenses</span><strong id="liveExpenses" class="block">R0.00</strong></div>
+     <div><span class="lbl">Net profit</span><strong id="liveProfit" class="block">R0.00</strong></div>
+     <div><span class="lbl">Remaining cash</span><strong id="liveCash" class="block">R0.00</strong></div>
+     <div><span class="lbl">Earnings per trip</span><strong id="livePerTrip" class="block">R0.00</strong></div>
+    </div>
+   </div>
+   <div id="deleteConfirm" class="hidden-state mt-4 rounded-xl border border-[#eab6c1] bg-[#fff4f5] p-4">
+    <p style="color:#9f3348;font-size:16px">Delete this saved daily entry? This correction cannot be undone.</p>
+    <div class="mt-3 flex gap-2">
+     <button id="confirmDelete" type="button" class="btn" style="background:#a94359;color:#fff">Yes, delete entry</button>
+     <button id="cancelDelete" type="button" class="btn" style="background:#fff">Keep entry</button>
+    </div>
+   </div>
+   <div class="mt-6 flex flex-wrap justify-between gap-3">
+    <button id="deleteButton" type="button" class="btn hidden-state" style="background:#fff0f2;color:#a94359">Delete / correct entry</button>
+    <div class="ml-auto flex gap-2">
+     <button id="cancelButton" type="button" class="btn" style="background:#eee8f5;color:#564667">Cancel</button>
+     <button id="saveButton" type="submit" class="btn" style="background:#36724c;color:#fff;padding:12px 20px">Save daily entry</button>
+    </div>
+   </div>
+  </form>
+ </div>
+</dialog>
+<script>
+const state={records:[],selectedMonth:new Date().toISOString().slice(0,7),editingId:null};
+const $=id=>document.getElementById(id);
+const money=v=>new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',minimumFractionDigits:2}).format(Number(v||0)).replace('ZAR','R');
+const num=id=>Math.max(0,Number($(id).value)||0);
+const monthName=v=>new Intl.DateTimeFormat('en-ZA',{month:'long',year:'numeric'}).format(new Date(v+'-01T12:00:00'));
+const dateDisplay=d=>new Intl.DateTimeFormat('en-ZA',{day:'numeric',month:'short'}).format(new Date(d+'T12:00:00'));
+const calc=r=>{const income=+r.trip_earnings||0,fuel=+r.fuel_spent||0,other=+r.other_expenses||0,expenses=fuel+other,profit=income-expenses;return{income,fuel,other,expenses,profit,deposits:+r.bank_deposit||0,remaining:income-expenses-(+r.bank_deposit||0)-(+r.withdrawn||0),trips:+r.trips||0}};
+const monthRecords=()=>state.records.filter(r=>r.entry_date&&r.entry_date.slice(0,7)===state.selectedMonth).sort((a,b)=>b.entry_date.localeCompare(a.entry_date));
+const setText=(id,v)=>{$(id).textContent=v};
+function render(){
+ const list=monthRecords(),totals=list.reduce((a,r)=>{const c=calc(r);Object.keys(c).forEach(k=>a[k]=(a[k]||0)+c[k]);return a},{});
+ const worked=list.filter(r=>calc(r).income||calc(r).trips||calc(r).expenses).length;
+ setText('selectedMonth',monthName(state.selectedMonth));$('monthPicker').value=state.selectedMonth;setText('entryCount',`${list.length} saved day${list.length===1?'':'s'}`);
+ setText('totalTrips',totals.trips||0);setText('totalRevenue',money(totals.income));setText('totalFuel',money(totals.fuel));setText('totalOther',money(totals.other));setText('totalDeposits',money(totals.deposits));setText('totalProfit',money(totals.profit));setText('averageTrip',money(totals.trips?totals.income/totals.trips:0));
+ $('totalProfit').className='metric-value '+((totals.profit||0)>=0?'positive':'negative');
+ const best=list.reduce((b,r)=>!b||calc(r).income>calc(b).income?r:b,null),most=list.reduce((b,r)=>!b||calc(r).trips>calc(b).trips?r:b,null);
+ setText('bestDay',best?`${dateDisplay(best.entry_date)} · ${money(calc(best).income)}`:'—');setText('mostTrips',most?`${calc(most).trips} · ${dateDisplay(most.entry_date)}`:'0');
+ setText('daysWorked',worked);setText('avgRevenue',money(worked?totals.income/worked:0));setText('avgProfit',money(worked?totals.profit/worked:0));setText('snapshotFuel',money(totals.fuel));
+ setText('flowEarned',money(totals.income));setText('flowSpent',money(totals.expenses));setText('flowNet',money(totals.profit));setText('flowDeposited',money(totals.deposits));setText('flowRemaining',money(totals.remaining));
+ renderToday();renderRows(list);renderComparison(totals);renderTrend(list);
+}
+function renderToday(){
+ const today=new Date().toISOString().slice(0,10),r=state.records.find(x=>x.entry_date===today),c=calc(r||{});
+ setText('todayDate',new Intl.DateTimeFormat('en-ZA',{weekday:'short',day:'numeric',month:'short'}).format(new Date(today+'T12:00:00')));setText('todayTrips',c.trips);setText('todayRevenue',money(c.income));setText('todayFuel',money(c.fuel));setText('todayExpenses',money(c.expenses));setText('todayProfit',money(c.profit));$('todayProfit').className='mt-1 text-xl font-bold '+(c.profit>=0?'positive':'negative');
+}
+function renderRows(list){
+ const body=$('dailyRows'),old=new Map([...body.children].map(x=>[x.dataset.rowId,x]));
+ list.forEach(r=>{let row=old.get(r.__backendId);if(!row){row=$('rowTemplate').content.firstElementChild.cloneNode(true);row.dataset.rowId=r.__backendId;body.appendChild(row)}
+  row.querySelector('.edit-btn').onclick=()=>openForm(r);const c=calc(r);
+  row.querySelector('.row-date').textContent=dateDisplay(r.entry_date);row.querySelector('.row-trips').textContent=c.trips;row.querySelector('.row-income').textContent=money(c.income);row.querySelector('.row-fuel').textContent=money(c.fuel);row.querySelector('.row-other').textContent=money(c.other);row.querySelector('.row-deposit').textContent=money(c.deposits);
+  const p=row.querySelector('.row-profit');p.textContent=(c.profit<0?'− ':'+')+money(Math.abs(c.profit));p.className='px-3 py-4 font-bold row-profit '+(c.profit>=0?'positive':'negative');old.delete(r.__backendId)});
+ old.forEach(x=>x.remove());
+ $('dailyTable').classList.toggle('hidden-state',!list.length);$('emptyState').classList.toggle('hidden-state',!!list.length);
+}
+function renderComparison(t){const vals=[{v:t.income||0,c:'#d2738c'},{v:t.expenses||0,c:'#c8a179'},{v:Math.max(0,t.profit||0),c:'#5c9b70'}],max=Math.max(...vals.map(x=>x.v),1);$('comparisonChart').innerHTML=vals.map(x=>`<div class="chart-col"><span class="absolute -top-1 text-[10px] font-bold">${money(x.v)}</span><div class="chart-bar" style="height:${Math.max(3,x.v/max*145)}px;background:${x.c}"></div></div>`).join('')}
+function renderTrend(list){
+ const days=new Date(state.selectedMonth.slice(0,4),state.selectedMonth.slice(5),0).getDate(),map=Object.fromEntries(list.map(r=>[+r.entry_date.slice(8),calc(r)])),rev=[],prof=[];
+ for(let d=1;d<=days;d++){rev.push(map[d]?.income||0);prof.push(map[d]?.profit||0)}
+ const max=Math.max(...rev,...prof.map(Math.abs),1),pts=a=>a.map((v,i)=>`${(i/(days-1||1))*700},${175-(Math.max(0,v)/max)*155}`).join(' ');
+ $('trendChart').innerHTML=`<line x1="0" y1="175" x2="700" y2="175" stroke="#eadfda"/><polyline points="${pts(rev)}" fill="none" stroke="#d2738c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts(prof)}" fill="none" stroke="#8b7aad" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+function updateLive(){const c=calc({trip_earnings:num('tripEarnings'),fuel_spent:num('fuelSpent'),other_expenses:num('otherExpenses'),bank_deposit:num('bankDeposit'),withdrawn:num('withdrawn'),trips:num('trips')});setText('liveExpenses',money(c.expenses));setText('liveProfit',money(c.profit));setText('liveCash',money(c.remaining));setText('livePerTrip',money(c.trips?c.income/c.trips:0))}
+function openForm(record=null){
+ state.editingId=record?.__backendId||null;$('entryForm').reset();$('entryDate').value=record?.entry_date||new Date().toISOString().slice(0,10);
+ const f={trips:'trips',tripEarnings:'trip_earnings',cashEarnings:'cash_earnings',appEarnings:'app_earnings',bankDeposit:'bank_deposit',fuelSpent:'fuel_spent',otherExpenses:'other_expenses',withdrawn:'withdrawn',expenseCategory:'expense_category',notes:'notes'};
+ Object.entries(f).forEach(([id,k])=>$(id).value=record?.[k]??'');
+ setText('formHeading',record?'Edit daily entry':'Add daily entry');
+ $('deleteButton').classList.toggle('hidden-state',!record);$('deleteConfirm').classList.add('hidden-state');$('formError').classList.add('hidden-state');updateLive();$('entryDialog').showModal();
+}
+function error(m){$('formError').textContent=m;$('formError').classList.remove('hidden-state')}
+$('entryForm').addEventListener('submit',async e=>{
+ e.preventDefault();const date=$('entryDate').value;if(!date)return error('Please choose the working date.');
+ const data={entry_date:date,trips:num('trips'),trip_earnings:num('tripEarnings'),cash_earnings:num('cashEarnings'),app_earnings:num('appEarnings'),bank_deposit:num('bankDeposit'),fuel_spent:num('fuelSpent'),other_expenses:num('otherExpenses'),withdrawn:num('withdrawn'),expense_category:$('expenseCategory').value,notes:$('notes').value.trim()};
+ const btn=$('saveButton');btn.disabled=true;
+ const res=state.editingId?await dataSdk.update({...state.records.find(r=>r.__backendId===state.editingId),...data}):await dataSdk.create(data);
+ btn.disabled=false;if(res.isOk)$('entryDialog').close();else error('We could not save this entry. Please try again.');
+});
+$('confirmDelete').onclick=async()=>{const rec=state.records.find(r=>r.__backendId===state.editingId);if(!rec)return;const res=await dataSdk.delete(rec);if(res.isOk)$('entryDialog').close();else error('We could not delete this entry. Please try again.')};
+$('deleteButton').onclick=()=>$('deleteConfirm').classList.remove('hidden-state');$('cancelDelete').onclick=()=>$('deleteConfirm').classList.add('hidden-state');
+$('closeDialog').onclick=$('cancelButton').onclick=()=>$('entryDialog').close();
+document.querySelectorAll('.calc-input').forEach(i=>i.addEventListener('input',updateLive));
+$('addEntryButton').onclick=$('tableAddButton').onclick=()=>openForm();
+$('prevMonth').onclick=()=>changeMonth(-1);$('nextMonth').onclick=()=>changeMonth(1);
+$('monthPickerButton').onclick=()=>$('monthPicker').showPicker?.();
+$('monthPicker').onchange=e=>{if(e.target.value){state.selectedMonth=e.target.value;render()}};
+function changeMonth(n){const d=new Date(state.selectedMonth+'-01T12:00:00');d.setMonth(d.getMonth()+n);state.selectedMonth=d.toISOString().slice(0,7);render()}
+async function init(){lucide.createIcons();const r=await dataSdk.init({onDataChanged(d){state.records=d;render()}});if(!r.isOk)setText('entryCount','Unable to load saved entries');render()}
+init();
+</script>
+</body></html>
